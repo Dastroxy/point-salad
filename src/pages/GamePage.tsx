@@ -316,7 +316,7 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
                       {stack.map((c, i) => (
                         <div
                           key={c.id}
-                          className="absolute rounded-xl ring-2 ring-white/30"
+                          className="absolute rounded-xl ring-2 ring-white/80"
                           style={{ top: i * 20, left: 0, zIndex: i }}
                         >
                           <VeggieCard card={c} small />
@@ -627,7 +627,7 @@ export default function GamePage({ game }: Props) {
                       {stack.map((c, i) => (
                         <div
                           key={c.id}
-                          className="absolute rounded-xl ring-2 ring-white/30"
+                          className="absolute rounded-xl ring-2 ring-white/80"
                           style={{ top: i * 20, left: 0, zIndex: i }}
                         >
                           <VeggieCard card={c} />
