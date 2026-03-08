@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  background-color: #2d4a22;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Baloo 2', cursive;
+}
+
+.card-text {
+  font-family: 'Baloo 2', cursive;
+  font-weight: 700;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 12px); }
+
+.card-wrapper { perspective: 600px; }
+.card-inner {
+  transition: transform 0.4s;
+  transform-style: preserve-3d;
+  position: relative;
+}
+.card-inner.flipped { transform: rotateY(180deg); }
+.card-face {
+  backface-visibility: hidden;
+  position: absolute; inset: 0;
+}
+.card-face.back { transform: rotateY(180deg); }
