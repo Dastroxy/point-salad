@@ -301,7 +301,7 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
                 <p className="text-salad-lime text-[10px] font-bold mb-1.5 uppercase tracking-wide">
                   🥗 Veggie Cards ({veggieCards.length})
                 </p>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-4">
                   {Object.entries(
                     veggieCards.reduce<Record<string, Card[]>>((acc, c) => {
                       acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
@@ -311,13 +311,13 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
                     <div
                       key={veggie}
                       className="relative flex-shrink-0"
-                      style={{ width: 72, height: 104 + (stack.length - 1) * 10 }}
+                      style={{ width: 72, height: 104 + (stack.length - 1) * 20 }}
                     >
                       {stack.map((c, i) => (
                         <div
                           key={c.id}
-                          className="absolute"
-                          style={{ top: i * 10, left: i * 4, zIndex: i }}
+                          className="absolute rounded-xl ring-2 ring-white/30"
+                          style={{ top: i * 20, left: 0, zIndex: i }}
                         >
                           <VeggieCard card={c} small />
                         </div>
@@ -612,7 +612,7 @@ export default function GamePage({ game }: Props) {
                 <p className="text-salad-lime text-[10px] font-bold uppercase tracking-wide mb-2">
                   🥗 Veggies
                 </p>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-4">
                   {Object.entries(
                     myVeggieCards.reduce<Record<string, Card[]>>((acc, c) => {
                       acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
@@ -622,16 +622,13 @@ export default function GamePage({ game }: Props) {
                     <div
                       key={veggie}
                       className="relative flex-shrink-0"
-                      style={{
-                        width: 90,
-                        height: 130 + (stack.length - 1) * 10,
-                      }}
+                      style={{ width: 90, height: 130 + (stack.length - 1) * 20 }}
                     >
                       {stack.map((c, i) => (
                         <div
                           key={c.id}
-                          className="absolute"
-                          style={{ top: i * 10, left: i * 4, zIndex: i }}
+                          className="absolute rounded-xl ring-2 ring-white/30"
+                          style={{ top: i * 20, left: 0, zIndex: i }}
                         >
                           <VeggieCard card={c} />
                         </div>
