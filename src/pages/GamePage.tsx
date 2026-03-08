@@ -607,37 +607,51 @@ export default function GamePage({ game }: Props) {
             )}
 
             {/* My Veggie cards — stacked by type */}
-            {myVeggieCards.length > 0 && (
-              <div>
-                <p className="text-salad-lime text-[10px] font-bold uppercase tracking-wide mb-2">
-                  🥗 Veggies
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  {Object.entries(
-                    myVeggieCards.reduce<Record<string, Card[]>>((acc, c) => {
-                      acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
-                      return acc;
-                    }, {})
-                  ).map(([veggie, stack]) => (
-                    <div
-                      key={veggie}
-                      className="relative flex-shrink-0"
-                      style={{ width: 90, height: 130 + (stack.length - 1) * 20 }}
-                    >
-                      {stack.map((c, i) => (
-                        <div
-                          key={c.id}
-                          className="absolute rounded-xl ring-2 ring-white/80"
-                          style={{ top: i * 20, left: 0, zIndex: i }}
-                        >
-                          <VeggieCard card={c} />
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+{myVeggieCards.length > 0 && (
+  <div>
+    <p className="text-salad-lime text-[10px] font-bold uppercase tracking-wide mb-2">
+      🥗 Veggies
+    </p>
+    <div
+      className="flex flex-wrap gap-4"
+      style={{
+        paddingBottom: Math.max(
+          0,
+          ...Object.values(
+            myVeggieCards.reduce<Record<string, number>>((acc, c) => {
+              acc[c.veggie] = (acc[c.veggie] ?? 0) + 1;
+              return acc;
+            }, {})
+          ).map(count => (count - 1) * 20)
+        ),
+      }}
+    >
+      {Object.entries(
+        myVeggieCards.reduce<Record<string, Card[]>>((acc, c) => {
+          acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
+          return acc;
+        }, {})
+      ).map(([veggie, stack]) => (
+        <div
+          key={veggie}
+          className="relative flex-shrink-0"
+          style={{ width: 90, height: 130 + (stack.length - 1) * 20 }}
+        >
+          {stack.map((c, i) => (
+            <div
+              key={c.id}
+              className="absolute rounded-xl ring-2 ring-white/80"
+              style={{ top: i * 20, left: 0, zIndex: i }}
+            >
+              <VeggieCard card={c} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 
             {(me.cards || []).length === 0 && (
               <p className="text-white/30 text-sm text-center py-4">
