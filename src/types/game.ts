@@ -9,26 +9,24 @@ export interface Card {
 
 export interface Player {
   id: string;
-  name: string;
   sessionId: string;
+  name: string;
   cards: Card[];
   isHost: boolean;
   isConnected: boolean;
 }
 
-export type GamePhase = 'lobby' | 'playing' | 'results';
-
 export interface GameRoom {
   id: string;
   hostId: string;
-  phase: GamePhase;
-  players: { [sessionId: string]: Player };
+  phase: 'lobby' | 'playing' | 'results';
+  players: Record<string, Player>;
   playerOrder: string[];
   currentTurnIndex: number;
-  // Firebase-safe flat structures
-  drawPiles: { p0: Card[]; p1: Card[]; p2: Card[] };
-  market: Record<string, Card | null>; // keys: "0_0", "0_1", "1_0" ...
-  turnAction: 'idle' | 'selecting';
+  drawPiles: Record<string, Card[]>;
+  market: Record<string, Card | null>;
+  turnAction: string;
   createdAt: number;
   selectedMarketCards: string[];
+  hasFlippedThisTurn?: boolean;
 }

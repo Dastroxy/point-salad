@@ -20,8 +20,10 @@ export function buildDeck(playerCount: number): Card[] {
   const result: Card[] = [];
 
   for (const veggie of veggies) {
-    const subset = ALL_CARDS.filter(c => c.veggie === veggie).slice(0, keep);
-    result.push(...subset);
+    const all = ALL_CARDS.filter(c => c.veggie === veggie);
+    // Shuffle all 18 of this veggie then take `keep` — random subset each game
+    const randomSubset = shuffle(all).slice(0, keep);
+    result.push(...randomSubset);
   }
 
   console.log(`Built deck: ${result.length} cards for ${playerCount} players (${keep} per veggie × 6)`);
@@ -62,13 +64,11 @@ export function refillMarket(
   const newMarket = market.map(col => [...col]);
 
   for (let col = 0; col < 3; col++) {
-    // Fill empty market slots from corresponding pile
     for (let row = 0; row < 2; row++) {
       if (newMarket[col][row] === null && newPiles[col].length > 0) {
         newMarket[col][row] = { ...newPiles[col].shift()!, isFaceUp: false };
       }
     }
-    // If this pile is now empty, split the largest pile in half
     if (newPiles[col].length === 0) {
       let maxLen = 0;
       let maxIdx = -1;
@@ -88,9 +88,6 @@ export function refillMarket(
   return { piles: newPiles, market: newMarket };
 }
 
-// ─── Firebase-safe serialisation helpers ─────────────────────────────────────
-// Firebase corrupts nested arrays — we flatten to plain objects for storage.
-
 export function pilesToFirebase(piles: Card[][]): Record<string, Card[]> {
   return {
     p0: piles[0] ?? [],
@@ -101,7 +98,6 @@ export function pilesToFirebase(piles: Card[][]): Record<string, Card[]> {
 
 export function firebaseToPiles(obj: Record<string, Card[]> | Card[][] | null | undefined): Card[][] {
   if (!obj) return [[], [], []];
-  // Already a plain array (shouldn't happen, but guard anyway)
   if (Array.isArray(obj)) {
     return [
       Object.values((obj as any)[0] ?? {}),
@@ -131,7 +127,6 @@ export function firebaseToMarket(
 ): (Card | null)[][] {
   const market: (Card | null)[][] = [[null, null], [null, null], [null, null]];
   if (!obj) return market;
-  // If somehow it's already a 2D array
   if (Array.isArray(obj)) {
     for (let col = 0; col < 3; col++) {
       for (let row = 0; row < 2; row++) {
@@ -140,7 +135,6 @@ export function firebaseToMarket(
     }
     return market;
   }
-  // Normal Firebase flat object
   for (let col = 0; col < 3; col++) {
     for (let row = 0; row < 2; row++) {
       market[col][row] = (obj as any)[`${col}_${row}`] ?? null;

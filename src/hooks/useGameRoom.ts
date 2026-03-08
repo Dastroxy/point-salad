@@ -73,6 +73,7 @@ export function useGameRoom() {
         turnAction: 'idle',
         createdAt: Date.now(),
         selectedMarketCards: [],
+        hasFlippedThisTurn: false,
       };
       await set(ref(db, `rooms/${code}`), newRoom);
       setPlayerName(name.trim());
@@ -144,6 +145,7 @@ export function useGameRoom() {
         currentTurnIndex: 0,
         turnAction: 'idle',
         selectedMarketCards: [],
+        hasFlippedThisTurn: false,
       });
     } catch (err: any) {
       console.error('startGame failed:', err);
@@ -183,6 +185,7 @@ export function useGameRoom() {
         currentTurnIndex: nextIndex,
         phase: isGameOver ? 'results' : 'playing',
         selectedMarketCards: [],
+        hasFlippedThisTurn: false,
       });
     } catch (err: any) {
       console.error('draftPointCard failed:', err);
@@ -240,6 +243,7 @@ export function useGameRoom() {
         currentTurnIndex: nextIndex,
         phase: isGameOver ? 'results' : 'playing',
         selectedMarketCards: [],
+        hasFlippedThisTurn: false,
       });
     } catch (err: any) {
       console.error('confirmMarketDraft failed:', err);
@@ -251,11 +255,13 @@ export function useGameRoom() {
     if (!room || !roomId) return;
     const currentSid = room.playerOrder[room.currentTurnIndex];
     if (currentSid !== sessionId) return;
+    if (room.hasFlippedThisTurn) return;
     try {
       const updatedCards = (room.players[sessionId].cards || []).map((c: Card) =>
         c.id === cardId && c.isFaceUp ? { ...c, isFaceUp: false } : c
       );
       await update(ref(db, `rooms/${roomId}/players/${sessionId}`), { cards: updatedCards });
+      await update(ref(db, `rooms/${roomId}`), { hasFlippedThisTurn: true });
     } catch (err: any) {
       console.error('flipCardToVeggie failed:', err);
     }
@@ -302,6 +308,7 @@ export function useGameRoom() {
         currentTurnIndex: 0,
         turnAction: 'idle',
         selectedMarketCards: [],
+        hasFlippedThisTurn: false,
       });
     } catch (err: any) {
       console.error('resetToLobby failed:', err);

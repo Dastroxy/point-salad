@@ -64,7 +64,6 @@ function parsePointCard(pointText: string, veggie: string): {
     return { pts, label: pointText, veggies: allMentioned, negative: [], mode: 'special' };
   }
 
-  // Show all 6 veggies for "set of all 6" card
   if (text.includes('set of all')) {
     return { pts, label: pointText, veggies: allVeggies, negative: [], mode: 'special' };
   }
@@ -76,36 +75,26 @@ function parsePointCard(pointText: string, veggie: string): {
   return { pts, label: pointText, veggies: positive.length > 0 ? positive : [veggie], negative, mode: 'single' };
 }
 
-
 function wrapText(text: string, maxChars = 14): string[] {
-  // Special case: if text contains '+' joined veggie combos (e.g. "8pts per Carrot+Pepper+Tomato")
-  // split at '+' boundaries so each line stays readable
   const plusMatch = text.match(/^(.+?\bper\b\s*)([A-Za-z]+(?:\+[A-Za-z]+)+)(.*)$/i);
   if (plusMatch) {
-    const prefix = plusMatch[1].trim();   // e.g. "8pts per"
-    const combo = plusMatch[2];           // e.g. "Carrot+Pepper+Tomato"
-    const suffix = plusMatch[3].trim();   // e.g. "" or extra text
-
-    const parts = combo.split('+');       // ["Carrot","Pepper","Tomato"]
+    const prefix = plusMatch[1].trim();
+    const combo = plusMatch[2];
+    const suffix = plusMatch[3].trim();
+    const parts = combo.split('+');
     const lines: string[] = [];
-
-    // First line: prefix + first two veggies
     if (parts.length >= 2) {
       lines.push(`${prefix} ${parts[0]}+${parts[1]}`);
     } else {
       lines.push(`${prefix} ${parts[0]}`);
     }
-
-    // Remaining veggies each on their own line with leading '+'
     for (let i = 2; i < parts.length; i++) {
       lines.push(`+${parts[i]}`);
     }
-
     if (suffix) lines.push(suffix);
     return lines;
   }
 
-  // Default: wrap by word count
   const words = text.split(' ');
   const lines: string[] = [];
   let current = '';
@@ -121,17 +110,15 @@ function wrapText(text: string, maxChars = 14): string[] {
   return lines;
 }
 
-
-// ─── Point Card Inner Layout (reused for both piles and hand) ─────────────────
+// ─── Point Card Inner Layout ──────────────────────────────────────────────────
 
 function PointCardInner({ card, small }: { card: Card; small?: boolean }) {
-  const { pts, veggies, negative, mode } = parsePointCard(card.pointText, card.veggie);
+  const { veggies, negative } = parsePointCard(card.pointText, card.veggie);
   const lines = wrapText(card.pointText, small ? 12 : 15);
   const veggieBgColor = VEGGIE_BG[card.veggie] ?? '#8bc34a';
 
   return (
     <div className="bg-salad-yellow w-full h-full rounded-xl flex flex-col overflow-hidden">
-      {/* Top — veggie identity circle */}
       <div
         className="flex items-center justify-center pt-1.5 pb-1 flex-shrink-0"
         style={{ background: `${veggieBgColor}22` }}
@@ -148,10 +135,8 @@ function PointCardInner({ card, small }: { card: Card; small?: boolean }) {
         </div>
       </div>
 
-      {/* Divider */}
       <div className="h-px mx-2" style={{ background: `${veggieBgColor}55` }} />
 
-      {/* Middle — wrapped scoring text */}
       <div className="flex-1 flex flex-col items-center justify-center px-1 py-0.5">
         {lines.map((line, i) => (
           <p
@@ -168,10 +153,8 @@ function PointCardInner({ card, small }: { card: Card; small?: boolean }) {
         ))}
       </div>
 
-      {/* Divider */}
       <div className="h-px mx-2" style={{ background: `${veggieBgColor}55` }} />
 
-      {/* Bottom — just veggies involved */}
       <div className="flex items-center justify-center gap-1 py-1 px-1 flex-shrink-0 flex-wrap">
         {veggies.map((v, i) => (
           <span key={i} style={{ fontSize: small ? 10 : 13 }}>{VEGGIE_EMOJI[v]}</span>
@@ -312,16 +295,39 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
                 </div>
               </div>
             )}
+
             {veggieCards.length > 0 && (
               <div>
                 <p className="text-salad-lime text-[10px] font-bold mb-1.5 uppercase tracking-wide">
                   🥗 Veggie Cards ({veggieCards.length})
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {veggieCards.map(c => <VeggieCard key={c.id} card={c} small />)}
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(
+                    veggieCards.reduce<Record<string, Card[]>>((acc, c) => {
+                      acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
+                      return acc;
+                    }, {})
+                  ).map(([veggie, stack]) => (
+                    <div
+                      key={veggie}
+                      className="relative flex-shrink-0"
+                      style={{ width: 72, height: 104 + (stack.length - 1) * 10 }}
+                    >
+                      {stack.map((c, i) => (
+                        <div
+                          key={c.id}
+                          className="absolute"
+                          style={{ top: i * 10, left: i * 4, zIndex: i }}
+                        >
+                          <VeggieCard card={c} small />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
+
             {(player.cards || []).length === 0 && (
               <p className="text-white/30 text-xs">No cards yet</p>
             )}
@@ -449,7 +455,7 @@ export default function GamePage({ game }: Props) {
               : '📦 Card Market'}
           </p>
 
-          {/* Point Piles — bigger */}
+          {/* Point Piles */}
           <div className="flex gap-2 sm:gap-3 justify-center mb-4">
             {pilesArray.map((pile, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
@@ -489,7 +495,7 @@ export default function GamePage({ game }: Props) {
             ))}
           </div>
 
-          {/* Veggie Market — smaller */}
+          {/* Veggie Market */}
           <div>
             <p className="text-salad-lime/70 text-[10px] font-bold uppercase mb-2">
               Veggie Market
@@ -568,14 +574,16 @@ export default function GamePage({ game }: Props) {
               <p className="text-salad-yellow font-bold text-sm">{myScore} pts</p>
             </div>
 
-            {/* Point cards with Flip button above */}
+            {/* Point cards with Flip button */}
             {myPointCards.length > 0 && (
               <div className="mb-3">
                 <p className="text-salad-yellow text-[10px] font-bold uppercase tracking-wide mb-2">
                   📋 Point Cards
                   {isMyTurn && (
                     <span className="text-white/40 normal-case font-normal ml-1">
-                      — tap FLIP to convert to veggie (free, once per turn)
+                      {room.hasFlippedThisTurn
+                        ? '— flip used this turn'
+                        : '— tap FLIP to convert to veggie (free, once per turn)'}
                     </span>
                   )}
                 </p>
@@ -585,7 +593,8 @@ export default function GamePage({ game }: Props) {
                       {isMyTurn && (
                         <button
                           onClick={() => flipCardToVeggie(c.id)}
-                          className="px-3 py-1.5 bg-salad-green text-white text-xs font-bold rounded-lg shadow-md hover:bg-salad-dark active:scale-95 transition-all min-w-[72px] min-h-[32px]"
+                          disabled={room.hasFlippedThisTurn === true}
+                          className="px-3 py-1.5 bg-salad-green text-white text-xs font-bold rounded-lg shadow-md hover:bg-salad-dark active:scale-95 transition-all min-w-[72px] min-h-[32px] disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           🔄 Flip
                         </button>
@@ -597,15 +606,37 @@ export default function GamePage({ game }: Props) {
               </div>
             )}
 
-            {/* Veggie cards */}
+            {/* My Veggie cards — stacked by type */}
             {myVeggieCards.length > 0 && (
               <div>
                 <p className="text-salad-lime text-[10px] font-bold uppercase tracking-wide mb-2">
                   🥗 Veggies
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {myVeggieCards.map(c => (
-                    <VeggieCard key={c.id} card={c} />
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(
+                    myVeggieCards.reduce<Record<string, Card[]>>((acc, c) => {
+                      acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
+                      return acc;
+                    }, {})
+                  ).map(([veggie, stack]) => (
+                    <div
+                      key={veggie}
+                      className="relative flex-shrink-0"
+                      style={{
+                        width: 90,
+                        height: 130 + (stack.length - 1) * 10,
+                      }}
+                    >
+                      {stack.map((c, i) => (
+                        <div
+                          key={c.id}
+                          className="absolute"
+                          style={{ top: i * 10, left: i * 4, zIndex: i }}
+                        >
+                          <VeggieCard card={c} />
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
