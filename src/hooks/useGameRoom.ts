@@ -21,26 +21,67 @@ function generateRoomCode(): string {
   return Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
+function safeCardsArray(cards: Card[] | Record<string, Card> | null | undefined): Card[] {
+  if (!cards) return [];
+  if (Array.isArray(cards)) return cards;
+  return Object.values(cards);
+}
+
+function getInitialRoomId(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    if (roomParam) return roomParam.toUpperCase();
+    return sessionStorage.getItem('ps_room_id');
+  } catch {
+    return null;
+  }
+}
+
 export function useGameRoom() {
   const sessionId = useRef(getSessionId()).current;
   const [room, setRoom] = useState<GameRoom | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const [playerName, setPlayerName] = useState('');
+  const [roomId, setRoomIdState] = useState<string | null>(getInitialRoomId);
+  const [playerName, setPlayerName] = useState(() => sessionStorage.getItem('ps_player_name') || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const setRoomId = useCallback((id: string | null) => {
+    setRoomIdState(id);
+    try {
+      if (id) {
+        sessionStorage.setItem('ps_room_id', id);
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', id);
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        sessionStorage.removeItem('ps_room_id');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // ignore URL state errors in iframes
+    }
+  }, []);
 
   useEffect(() => {
     if (!roomId) return;
     const roomRef = ref(db, `rooms/${roomId}`);
     const unsub = onValue(roomRef, snap => {
       const data = snap.val();
-      if (data) setRoom(data as GameRoom);
+      if (data) {
+        setRoom(data as GameRoom);
+      } else {
+        setRoom(null);
+        setRoomId(null);
+      }
     }, (err) => {
       console.error('Room listener error:', err);
       setError('Lost connection. Check Firebase config.');
     });
     return () => unsub();
-  }, [roomId]);
+  }, [roomId, setRoomId]);
 
   useEffect(() => {
     if (!roomId || !sessionId) return;
@@ -76,6 +117,7 @@ export function useGameRoom() {
         hasFlippedThisTurn: false,
       };
       await set(ref(db, `rooms/${code}`), newRoom);
+      sessionStorage.setItem('ps_player_name', name.trim());
       setPlayerName(name.trim());
       setRoomId(code);
     } catch (err: any) {
@@ -84,7 +126,7 @@ export function useGameRoom() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, setRoomId]);
 
   const joinRoom = useCallback(async (code: string, name: string) => {
     if (!name.trim()) { setError('Please enter your name.'); return; }
@@ -99,6 +141,7 @@ export function useGameRoom() {
       if (r.phase !== 'lobby') { setError('Game already started!'); return; }
       const currentPlayers = Object.keys(r.players || {});
       if (currentPlayers.length >= 6) { setError('Room is full!'); return; }
+      sessionStorage.setItem('ps_player_name', name.trim());
       if (currentPlayers.includes(sessionId)) {
         setPlayerName(name.trim());
         setRoomId(upperCode);
@@ -120,7 +163,7 @@ export function useGameRoom() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, setRoomId]);
 
   const startGame = useCallback(async () => {
     if (!room || !roomId) return;
@@ -155,7 +198,7 @@ export function useGameRoom() {
 
   const draftPointCard = useCallback(async (pileIndex: number) => {
     if (!room || !roomId) return;
-    const currentSid = room.playerOrder[room.currentTurnIndex];
+    const currentSid = room.playerOrder?.[room.currentTurnIndex];
     if (currentSid !== sessionId) return;
 
     const piles = firebaseToPiles(room.drawPiles as any);
@@ -166,10 +209,11 @@ export function useGameRoom() {
       const card = { ...piles[pileIndex][0], isFaceUp: true };
       piles[pileIndex] = piles[pileIndex].slice(1);
 
+      const currentCards = safeCardsArray(room.players[sessionId]?.cards);
       const updatedPlayers = { ...room.players };
       updatedPlayers[sessionId] = {
         ...updatedPlayers[sessionId],
-        cards: [...(updatedPlayers[sessionId].cards || []), card],
+        cards: [...currentCards, card],
       };
 
       const { piles: refilled, market: newMarket } = refillMarket(piles, market);
@@ -204,7 +248,7 @@ export function useGameRoom() {
 
   const confirmMarketDraft = useCallback(async (keys: string[]) => {
     if (!room || !roomId) return;
-    const currentSid = room.playerOrder[room.currentTurnIndex];
+    const currentSid = room.playerOrder?.[room.currentTurnIndex];
     if (currentSid !== sessionId) return;
     if (keys.length === 0) return;
 
@@ -212,21 +256,22 @@ export function useGameRoom() {
       const market = firebaseToMarket(room.market as any);
       const piles = firebaseToPiles(room.drawPiles as any);
       const updatedPlayers = { ...room.players };
+      const currentCards = safeCardsArray(updatedPlayers[sessionId]?.cards);
+      const newDraftedCards: Card[] = [];
 
       for (const key of keys) {
         const [c, r] = key.split('-').map(Number);
         const drafted = market[c]?.[r];
         if (drafted) {
-          updatedPlayers[sessionId] = {
-            ...updatedPlayers[sessionId],
-            cards: [
-              ...(updatedPlayers[sessionId].cards || []),
-              { ...drafted, isFaceUp: false },
-            ],
-          };
+          newDraftedCards.push({ ...drafted, isFaceUp: false });
           market[c][r] = null;
         }
       }
+
+      updatedPlayers[sessionId] = {
+        ...updatedPlayers[sessionId],
+        cards: [...currentCards, ...newDraftedCards],
+      };
 
       const { piles: refilled, market: filledMarket } = refillMarket(piles, market);
       const nextIndex = (room.currentTurnIndex + 1) % room.playerOrder.length;
@@ -253,11 +298,12 @@ export function useGameRoom() {
 
   const flipCardToVeggie = useCallback(async (cardId: number) => {
     if (!room || !roomId) return;
-    const currentSid = room.playerOrder[room.currentTurnIndex];
+    const currentSid = room.playerOrder?.[room.currentTurnIndex];
     if (currentSid !== sessionId) return;
     if (room.hasFlippedThisTurn) return;
     try {
-      const updatedCards = (room.players[sessionId].cards || []).map((c: Card) =>
+      const currentCards = safeCardsArray(room.players[sessionId]?.cards);
+      const updatedCards = currentCards.map((c: Card) =>
         c.id === cardId && c.isFaceUp ? { ...c, isFaceUp: false } : c
       );
       await update(ref(db, `rooms/${roomId}/players/${sessionId}`), { cards: updatedCards });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { useGameRoom } from '../hooks/useGameRoom';
 import type { Card, Player, VeggieType } from '../types/game';
-import { calculateTotalScore, getVeggieCounts } from '../lib/scoring';
+import { calculateTotalScore, getVeggieCounts, scorePointCard } from '../lib/scoring';
 
 type Props = { game: ReturnType<typeof useGameRoom> };
 
@@ -12,12 +12,12 @@ const VEGGIE_EMOJI: Record<string, string> = {
 };
 
 const VEGGIE_COLOR: Record<string, string> = {
-  carrot: 'bg-orange-400',
-  pepper: 'bg-red-500',
-  tomato: 'bg-red-700',
-  lettuce: 'bg-green-500',
-  onion: 'bg-purple-500',
-  cabbage: 'bg-blue-400',
+  carrot: 'bg-orange-500',
+  pepper: 'bg-rose-500',
+  tomato: 'bg-red-600',
+  lettuce: 'bg-emerald-600',
+  onion: 'bg-purple-600',
+  cabbage: 'bg-sky-500',
 };
 
 const VEGGIE_BG: Record<string, string> = {
@@ -30,6 +30,12 @@ const VEGGIE_BG: Record<string, string> = {
 };
 
 const AVATARS = ['🥕', '🫑', '🍅', '🥬', '🧅', '🥦'];
+
+function safeCards(cards: Card[] | Record<string, Card> | null | undefined): Card[] {
+  if (!cards) return [];
+  if (Array.isArray(cards)) return cards;
+  return Object.values(cards);
+}
 
 // ─── Point Card Parsing ───────────────────────────────────────────────────────
 
@@ -112,40 +118,48 @@ function wrapText(text: string, maxChars = 14): string[] {
 
 // ─── Point Card Inner Layout ──────────────────────────────────────────────────
 
-function PointCardInner({ card, small }: { card: Card; small?: boolean }) {
+function PointCardInner({ card, small, livePts }: { card: Card; small?: boolean; livePts?: number }) {
   const { veggies, negative } = parsePointCard(card.pointText, card.veggie);
-  const lines = wrapText(card.pointText, small ? 12 : 15);
+  const lines = wrapText(card.pointText, small ? 11 : 14);
   const veggieBgColor = VEGGIE_BG[card.veggie] ?? '#8bc34a';
 
   return (
-    <div className="bg-salad-yellow w-full h-full rounded-xl flex flex-col overflow-hidden">
+    <div className="bg-[#fef9ef] w-full h-full rounded-xl flex flex-col justify-between overflow-hidden shadow-inner border border-amber-900/15 relative">
+      {/* Top Header: Seal Veggie Icon + Optional Live Score Pill */}
       <div
-        className="flex items-center justify-center pt-1.5 pb-1 flex-shrink-0"
-        style={{ background: `${veggieBgColor}22` }}
+        className="flex items-center justify-between px-2 pt-1.5 pb-1 flex-shrink-0"
+        style={{ background: `${veggieBgColor}18` }}
       >
         <div
-          className="rounded-full flex items-center justify-center shadow-sm"
+          className="rounded-full flex items-center justify-center shadow-xs border border-white/60"
           style={{
             background: veggieBgColor,
-            width: small ? 22 : 28,
-            height: small ? 22 : 28,
+            width: small ? 20 : 26,
+            height: small ? 20 : 26,
           }}
         >
           <span style={{ fontSize: small ? 11 : 14 }}>{VEGGIE_EMOJI[card.veggie]}</span>
         </div>
+
+        {livePts !== undefined && (
+          <span className="text-[10px] font-black tracking-tight px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-900 font-mono border border-amber-500/30">
+            {livePts > 0 ? `+${livePts}` : livePts} pts
+          </span>
+        )}
       </div>
 
-      <div className="h-px mx-2" style={{ background: `${veggieBgColor}55` }} />
+      <div className="h-px mx-1.5 opacity-30" style={{ background: veggieBgColor }} />
 
-      <div className="flex-1 flex flex-col items-center justify-center px-1 py-0.5">
+      {/* Middle Text: Balanced Baloo 2 font */}
+      <div className="flex-1 flex flex-col items-center justify-center px-1.5 py-1">
         {lines.map((line, i) => (
           <p
             key={i}
-            className="text-salad-dark font-bold text-center leading-tight w-full"
+            className="text-stone-900 font-bold text-center leading-tight w-full"
             style={{
               fontFamily: '"Baloo 2", cursive',
-              fontSize: small ? 8.5 : 10,
-              lineHeight: 1.3,
+              fontSize: small ? 9 : 11,
+              lineHeight: 1.25,
             }}
           >
             {line}
@@ -153,14 +167,22 @@ function PointCardInner({ card, small }: { card: Card; small?: boolean }) {
         ))}
       </div>
 
-      <div className="h-px mx-2" style={{ background: `${veggieBgColor}55` }} />
+      <div className="h-px mx-1.5 opacity-30" style={{ background: veggieBgColor }} />
 
-      <div className="flex items-center justify-center gap-1 py-1 px-1 flex-shrink-0 flex-wrap">
+      {/* Bottom Icons */}
+      <div className="flex items-center justify-center gap-1 py-1 px-1 flex-shrink-0 flex-wrap bg-stone-100/60">
         {veggies.map((v, i) => (
-          <span key={i} style={{ fontSize: small ? 10 : 13 }}>{VEGGIE_EMOJI[v]}</span>
+          <span key={i} style={{ fontSize: small ? 10 : 13 }} title={v}>
+            {VEGGIE_EMOJI[v]}
+          </span>
         ))}
         {negative.map((v, i) => (
-          <span key={`neg-${i}`} style={{ fontSize: small ? 10 : 13, opacity: 0.5 }}>
+          <span
+            key={`neg-${i}`}
+            style={{ fontSize: small ? 10 : 13 }}
+            className="opacity-50 line-through filter grayscale"
+            title={`-${v}`}
+          >
             {VEGGIE_EMOJI[v]}
           </span>
         ))}
@@ -177,32 +199,43 @@ interface VeggieCardProps {
   selected?: boolean;
   onSelect?: () => void;
   small?: boolean;
+  livePts?: number;
 }
 
-function VeggieCard({ card, selectable, selected, onSelect, small }: VeggieCardProps) {
+function VeggieCard({ card, selectable, selected, onSelect, small, livePts }: VeggieCardProps) {
   const sizeClass = small
-    ? 'w-[72px] h-[104px]'
-    : 'w-[90px] h-[130px] sm:w-[110px] sm:h-[155px]';
+    ? 'w-[76px] h-[108px] sm:w-[84px] sm:h-[118px]'
+    : 'w-[92px] h-[132px] sm:w-[106px] sm:h-[150px]';
 
   if (!card.isFaceUp) {
     return (
       <motion.div
         layout
-        initial={{ scale: 0, opacity: 0 }}
+        initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        whileTap={selectable ? { scale: 0.93 } : {}}
+        whileTap={selectable ? { scale: 0.94 } : {}}
         onClick={onSelect}
         className={`
           relative rounded-xl select-none overflow-hidden shadow-md flex-shrink-0
           transition-all duration-200 ${sizeClass}
           ${selectable ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1' : ''}
-          ${selected ? 'ring-4 ring-salad-lime ring-offset-2 scale-105' : ''}
+          ${selected ? 'ring-4 ring-salad-lime ring-offset-2 ring-offset-salad-dark scale-105 shadow-xl' : ''}
         `}
       >
-        <div className={`${VEGGIE_COLOR[card.veggie]} w-full h-full flex flex-col items-center justify-center gap-1`}>
-          <span className={small ? 'text-2xl' : 'text-3xl sm:text-4xl'}>{VEGGIE_EMOJI[card.veggie]}</span>
-          <p className="text-white text-[10px] sm:text-xs font-bold capitalize">{card.veggie}</p>
+        <div className={`${VEGGIE_COLOR[card.veggie]} w-full h-full flex flex-col items-center justify-center p-2 gap-1 border-2 border-white/20 shadow-inner`}>
+          <span className={small ? 'text-3xl' : 'text-4xl sm:text-5xl'} role="img" aria-label={card.veggie}>
+            {VEGGIE_EMOJI[card.veggie]}
+          </span>
+          <span className="text-white text-[11px] sm:text-xs font-black tracking-wider uppercase drop-shadow-xs">
+            {card.veggie}
+          </span>
         </div>
+
+        {selected && (
+          <div className="absolute top-1.5 right-1.5 bg-salad-lime text-salad-dark w-5 h-5 rounded-full flex items-center justify-center text-xs font-black shadow">
+            ✓
+          </div>
+        )}
       </motion.div>
     );
   }
@@ -210,25 +243,36 @@ function VeggieCard({ card, selectable, selected, onSelect, small }: VeggieCardP
   return (
     <motion.div
       layout
-      initial={{ scale: 0, opacity: 0 }}
+      initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      whileTap={selectable ? { scale: 0.93 } : {}}
+      whileTap={selectable ? { scale: 0.94 } : {}}
       onClick={onSelect}
       className={`
         relative rounded-xl select-none overflow-hidden shadow-md flex-shrink-0
         transition-all duration-200 ${sizeClass}
         ${selectable ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1' : ''}
-        ${selected ? 'ring-4 ring-salad-lime ring-offset-2 scale-105' : ''}
+        ${selected ? 'ring-4 ring-salad-lime ring-offset-2 ring-offset-salad-dark scale-105 shadow-xl' : ''}
       `}
     >
-      <PointCardInner card={card} small={small} />
+      <PointCardInner card={card} small={small} livePts={livePts} />
+      {selected && (
+        <div className="absolute top-1.5 right-1.5 bg-salad-lime text-salad-dark w-5 h-5 rounded-full flex items-center justify-center text-xs font-black shadow z-10">
+          ✓
+        </div>
+      )}
     </motion.div>
   );
 }
 
-// ─── Player Panel ─────────────────────────────────────────────────────────────
+// ─── Opponent Panel ───────────────────────────────────────────────────────────
 
-function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
+function PlayerPanel({
+  player,
+  allPlayers,
+  isMe,
+  isCurrent,
+  avatarEmoji,
+}: {
   player: Player;
   allPlayers: Player[];
   isMe: boolean;
@@ -236,45 +280,51 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
   avatarEmoji: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const veggies = getVeggieCounts(player.cards || []);
+  const cards = safeCards(player.cards);
+  const veggies = getVeggieCounts(cards);
   const score = calculateTotalScore(player, allPlayers);
-  const veggieCards = (player.cards || []).filter(c => !c.isFaceUp);
-  const pointCards = (player.cards || []).filter(c => c.isFaceUp);
+  const veggieCards = cards.filter(c => !c.isFaceUp);
+  const pointCards = cards.filter(c => c.isFaceUp);
 
   return (
-    <div className={`
-      rounded-2xl border transition-all duration-200
-      ${isMe ? 'border-salad-lime bg-white/10' : 'border-white/20 bg-white/5'}
-      ${isCurrent ? 'ring-2 ring-salad-yellow' : ''}
-    `}>
+    <div
+      className={`
+        rounded-2xl border transition-all duration-200 overflow-hidden
+        ${isMe ? 'border-salad-lime/60 bg-salad-lime/10' : 'border-white/10 bg-black/20'}
+        ${isCurrent ? 'ring-2 ring-salad-yellow shadow-lg' : ''}
+      `}
+    >
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-3 flex items-center gap-2 text-left"
+        className="w-full p-3 flex items-center gap-2.5 text-left hover:bg-white/5 transition-colors"
       >
-        <span className="text-xl">{avatarEmoji}</span>
+        <span className="text-2xl select-none">{avatarEmoji}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2">
             <span className="text-white font-bold text-sm truncate">{player.name}</span>
-            {isMe && <span className="text-salad-lime text-[10px] font-bold">(You)</span>}
+            {isMe && <span className="text-salad-lime text-[10px] font-bold bg-salad-lime/20 px-1.5 py-0.2 rounded">(You)</span>}
             {isCurrent && (
-              <span className="text-salad-yellow text-[10px] font-bold animate-pulse">▶ Turn</span>
+              <span className="text-salad-dark bg-salad-yellow text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                ▶ TURN
+              </span>
             )}
           </div>
-          <div className="flex gap-1.5 mt-0.5 flex-wrap">
+          <div className="flex gap-2 mt-1 flex-wrap">
             {(Object.entries(veggies) as [string, number][])
               .filter(([, v]) => v > 0)
               .map(([k, v]) => (
-                <span key={k} className="text-[10px] text-white/60">
-                  {VEGGIE_EMOJI[k]}×{v}
+                <span key={k} className="text-[11px] text-white/80 bg-white/10 px-1.5 py-0.2 rounded-md font-mono">
+                  {VEGGIE_EMOJI[k]} {v}
                 </span>
               ))}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-salad-yellow font-bold text-sm">{score}pts</div>
-          <div className="text-white/40 text-[10px]">{(player.cards || []).length} cards</div>
+          <div className="text-salad-yellow font-display font-extrabold text-base">{score} pts</div>
+          <div className="text-white/40 text-[10px]">{cards.length} cards</div>
         </div>
-        <span className="text-white/40 text-sm ml-1">{expanded ? '▲' : '▼'}</span>
+        <span className="text-white/40 text-xs ml-1 font-mono">{expanded ? '▲' : '▼'}</span>
       </button>
 
       <AnimatePresence>
@@ -283,53 +333,53 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden px-3 pb-3"
+            className="px-3 pb-3 pt-1 border-t border-white/5 space-y-3"
           >
             {pointCards.length > 0 && (
-              <div className="mb-3">
-                <p className="text-salad-yellow text-[10px] font-bold mb-1.5 uppercase tracking-wide">
-                  📋 Point Cards ({pointCards.length})
+              <div>
+                <p className="text-salad-yellow text-[11px] font-bold uppercase tracking-wider mb-2">
+                  Point Cards ({pointCards.length})
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {pointCards.map(c => <VeggieCard key={c.id} card={c} small />)}
+                <div className="flex flex-wrap gap-2">
+                  {pointCards.map(c => (
+                    <VeggieCard
+                      key={c.id}
+                      card={c}
+                      small
+                      livePts={scorePointCard(c.id, veggies, allPlayers, player.sessionId)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
 
             {veggieCards.length > 0 && (
               <div>
-                <p className="text-salad-lime text-[10px] font-bold mb-1.5 uppercase tracking-wide">
-                  🥗 Veggie Cards ({veggieCards.length})
+                <p className="text-salad-lime text-[11px] font-bold uppercase tracking-wider mb-2">
+                  Veggies ({veggieCards.length})
                 </p>
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-2">
                   {Object.entries(
-                    veggieCards.reduce<Record<string, Card[]>>((acc, c) => {
-                      acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
+                    veggieCards.reduce<Record<string, number>>((acc, c) => {
+                      acc[c.veggie] = (acc[c.veggie] ?? 0) + 1;
                       return acc;
                     }, {})
-                  ).map(([veggie, stack]) => (
+                  ).map(([veggie, count]) => (
                     <div
                       key={veggie}
-                      className="relative flex-shrink-0"
-                      style={{ width: 72, height: 104 + (stack.length - 1) * 20 }}
+                      className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/10"
                     >
-                      {stack.map((c, i) => (
-                        <div
-                          key={c.id}
-                          className="absolute rounded-xl ring-2 ring-white/80"
-                          style={{ top: i * 20, left: 0, zIndex: i }}
-                        >
-                          <VeggieCard card={c} small />
-                        </div>
-                      ))}
+                      <span className="text-lg">{VEGGIE_EMOJI[veggie]}</span>
+                      <span className="text-white text-xs font-bold capitalize">{veggie}</span>
+                      <span className="text-salad-lime text-xs font-black font-mono ml-1">×{count}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {(player.cards || []).length === 0 && (
-              <p className="text-white/30 text-xs">No cards yet</p>
+            {cards.length === 0 && (
+              <p className="text-white/40 text-xs py-1">No cards in hand yet.</p>
             )}
           </motion.div>
         )}
@@ -342,7 +392,7 @@ function PlayerPanel({ player, allPlayers, isMe, isCurrent, avatarEmoji }: {
 
 export default function GamePage({ game }: Props) {
   const {
-    room, sessionId,
+    room, sessionId, roomId,
     marketArray, pilesArray,
     draftPointCard,
     confirmMarketDraft,
@@ -352,6 +402,8 @@ export default function GamePage({ game }: Props) {
   const [pendingPointPile, setPendingPointPile] = useState<number | null>(null);
   const [pendingMarket, setPendingMarket] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'table' | 'hand' | 'players'>('table');
+  const [copiedCode, setCopiedCode] = useState(false);
 
   if (!room) return null;
 
@@ -360,8 +412,10 @@ export default function GamePage({ game }: Props) {
   const currentSid = room.playerOrder?.[room.currentTurnIndex];
   const isMyTurn = currentSid === sessionId;
 
-  const myPointCards = (me?.cards || []).filter(c => c.isFaceUp);
-  const myVeggieCards = (me?.cards || []).filter(c => !c.isFaceUp);
+  const myCards = safeCards(me?.cards);
+  const myPointCards = myCards.filter(c => c.isFaceUp);
+  const myVeggieCards = myCards.filter(c => !c.isFaceUp);
+  const myVeggieCounts = getVeggieCounts(myCards);
   const myScore = me ? calculateTotalScore(me, players) : 0;
 
   const availableMarketCards = marketArray.flat().filter(c => c !== null).length;
@@ -370,7 +424,7 @@ export default function GamePage({ game }: Props) {
 
   function handleSelectPile(i: number) {
     if (!isMyTurn || confirming) return;
-    setPendingPointPile(prev => prev === i ? null : i);
+    setPendingPointPile(prev => (prev === i ? null : i));
     setPendingMarket([]);
   }
 
@@ -407,6 +461,17 @@ export default function GamePage({ game }: Props) {
     setPendingMarket([]);
   }
 
+  const handleCopyCode = async () => {
+    if (!roomId) return;
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
   const hasSelection = pendingPointPile !== null || pendingMarket.length > 0;
   const canConfirm =
     pendingPointPile !== null ||
@@ -416,257 +481,398 @@ export default function GamePage({ game }: Props) {
   const confirmLabel = confirming
     ? '⏳ Confirming...'
     : pendingPointPile !== null
-      ? '✅ Confirm Point Card'
-      : pendingMarket.length === 2
-        ? '✅ Confirm 2 Veggies'
-        : pendingMarket.length === 1 && canConfirmSingleMarket
-          ? '✅ Take Last Veggie'
-          : 'Select 1 more veggie…';
+    ? `✅ Confirm Pile ${pendingPointPile + 1} Point Card`
+    : pendingMarket.length === 2
+    ? '✅ Confirm 2 Veggie Cards'
+    : pendingMarket.length === 1 && canConfirmSingleMarket
+    ? '✅ Take Last Veggie'
+    : 'Select 1 more veggie…';
 
   return (
-    <div className="min-h-dvh bg-salad-dark flex flex-col max-w-2xl mx-auto">
+    <div className="min-h-dvh flex flex-col">
+      {/* ── Top App Bar ── */}
+      <header className="sticky top-0 z-30 bg-salad-dark/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-6 py-2.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl select-none">🥗</span>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-xl sm:text-2xl text-salad-yellow tracking-wide font-extrabold hidden xs:inline-block">
+                Point Salad
+              </h1>
+              {roomId && (
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/15 text-[11px] text-white/80 font-mono font-bold flex items-center gap-1 border border-white/10 transition-colors"
+                  title="Click to copy Room Code"
+                >
+                  <span>{roomId}</span>
+                  <span>{copiedCode ? '✓' : '📋'}</span>
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* ── Sticky Top Bar ── */}
-      <div className="flex items-center justify-between px-4 py-2 bg-black/30 backdrop-blur sticky top-0 z-20">
-        <h1 className="font-display text-2xl text-salad-yellow">🥗 Point Salad</h1>
-        <motion.div
-          key={currentSid}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-            isMyTurn
-              ? 'bg-salad-lime text-salad-dark animate-pulse-glow'
-              : 'bg-white/10 text-white/60'
-          }`}
-        >
-          {isMyTurn
-            ? '🎯 Your Turn!'
-            : `${room.players?.[currentSid]?.name ?? '...'}'s turn`}
-        </motion.div>
+          {/* Turn status banner */}
+          <div className="flex items-center gap-2">
+            <motion.div
+              key={currentSid}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-all shadow-md ${
+                isMyTurn
+                  ? 'bg-salad-lime text-salad-dark animate-pulse'
+                  : 'bg-white/10 text-white/90 border border-white/10'
+              }`}
+            >
+              <span className="inline-block">{isMyTurn ? '🎯' : '⏳'}</span>
+              <span>
+                {isMyTurn
+                  ? 'Your Turn!'
+                  : `${room.players?.[currentSid]?.name ?? 'Opponent'}'s turn`}
+              </span>
+            </motion.div>
+
+            {/* Current player quick score indicator */}
+            <div className="bg-salad-yellow/20 border border-salad-yellow/30 px-2.5 py-1 rounded-full text-xs font-extrabold text-salad-yellow hidden sm:flex items-center gap-1">
+              <span>Score:</span>
+              <span className="font-mono">{myScore} pts</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Mobile Tab Navigation (Hidden on lg+ screens) ── */}
+      <div className="lg:hidden bg-black/30 border-b border-white/10 px-3 py-1.5 sticky top-[49px] z-20 backdrop-blur">
+        <div className="flex rounded-xl bg-white/5 p-1 max-w-md mx-auto">
+          <button
+            type="button"
+            onClick={() => setMobileTab('table')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
+              mobileTab === 'table'
+                ? 'bg-salad-lime text-salad-dark shadow'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <span>🛒 Table & Market</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('hand')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              mobileTab === 'hand'
+                ? 'bg-salad-lime text-salad-dark shadow'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <span>🃏 Hand</span>
+            <span className="bg-salad-yellow/30 text-salad-yellow text-[10px] px-1 rounded-full font-mono">
+              {myScore}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('players')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
+              mobileTab === 'players'
+                ? 'bg-salad-lime text-salad-dark shadow'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <span>👥 Players</span>
+            <span className="text-[10px] opacity-70">({players.length})</span>
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 pb-6">
-
-        {/* ── Draft Area ── */}
-        <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-          <p className="text-salad-cream/60 text-[11px] font-bold mb-3 uppercase tracking-wide">
-            {isMyTurn
-              ? '👆 Draft 1 Point Card (pile) OR 2 Veggie Cards (market)'
-              : '📦 Card Market'}
-          </p>
-
-          {/* Point Piles */}
-          <div className="flex gap-2 sm:gap-3 justify-center mb-4">
-            {pilesArray.map((pile, i) => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                <div
-                  onClick={() => handleSelectPile(i)}
-                  className={`
-                    relative w-[90px] h-[130px] sm:w-[110px] sm:h-[155px] rounded-xl shadow-lg border-2
-                    transition-all duration-200
-                    ${isMyTurn && pile.length > 0
-                      ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1'
-                      : 'border-white/20'}
-                    ${pile.length === 0
-                      ? 'opacity-30 cursor-not-allowed border-white/10'
-                      : ''}
-                    ${pendingPointPile === i
-                      ? 'border-salad-lime ring-4 ring-salad-lime ring-offset-2 scale-105'
-                      : isMyTurn && pile.length > 0
-                        ? 'border-salad-lime/40'
-                        : ''}
-                  `}
-                >
-                  {pile[0] ? (
-                    <PointCardInner card={pile[0]} small={false} />
-                  ) : (
-                    <div className="w-full h-full rounded-xl bg-white/5 flex items-center justify-center">
-                      <span className="text-3xl opacity-30">📭</span>
-                    </div>
-                  )}
-                  {pile.length > 0 && (
-                    <div className="absolute -bottom-1.5 -right-1.5 bg-salad-dark text-salad-lime text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border border-salad-lime">
-                      {pile.length}
-                    </div>
-                  )}
-                </div>
-                <p className="text-white/50 text-[10px]">Pile {i + 1}</p>
+      {/* ── Main Responsive Game Arena ── */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ── Left / Main: The Table (Draw Piles + Market Columns) ── */}
+        <section
+          className={`lg:col-span-7 xl:col-span-7 space-y-4 ${
+            mobileTab !== 'table' ? 'hidden lg:block' : 'block'
+          }`}
+        >
+          {/* Table Container Card */}
+          <div className="bg-black/25 backdrop-blur-sm border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl">
+            {/* Guide header */}
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div>
+                <h2 className="font-display text-lg sm:text-xl text-salad-lime font-bold">
+                  Card Market & Piles
+                </h2>
+                <p className="text-white/60 text-xs">
+                  {isMyTurn
+                    ? 'Pick 1 Point Card from pile top OR pick 2 Veggie Cards from market.'
+                    : 'Wait for your turn to draft cards.'}
+                </p>
               </div>
-            ))}
-          </div>
+              {isMyTurn && (
+                <span className="text-[11px] font-extrabold bg-salad-lime/20 text-salad-lime border border-salad-lime/30 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  Drafting
+                </span>
+              )}
+            </div>
 
-          {/* Veggie Market */}
-          <div>
-            <p className="text-salad-lime/70 text-[10px] font-bold uppercase mb-2">
-              Veggie Market
-              {pendingMarket.length > 0 && (
-                <span className="text-salad-lime ml-1 normal-case font-normal">
-                  — {pendingMarket.length}/2 selected
-                </span>
+            {/* 3 Unified Columns: Pile on top, 2 Market cards directly underneath */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3.5 max-w-md sm:max-w-lg mx-auto justify-items-center">
+              {[0, 1, 2].map(colIdx => {
+                const pile = pilesArray[colIdx] ?? [];
+                const topCard = pile[0] ?? null;
+                const marketCol = marketArray[colIdx] ?? [null, null];
+
+                return (
+                  <div key={colIdx} className="flex flex-col items-center w-full max-w-[110px] space-y-2.5">
+                    {/* Column Header */}
+                    <div className="text-center">
+                      <span className="text-[11px] font-extrabold text-salad-cream/70 uppercase tracking-wider">
+                        Pile {colIdx + 1}
+                      </span>
+                    </div>
+
+                    {/* Point Pile Card */}
+                    <div
+                      onClick={() => handleSelectPile(colIdx)}
+                      className={`
+                        relative w-[76px] h-[108px] sm:w-[84px] sm:h-[118px] md:w-[94px] md:h-[134px] rounded-xl shadow-md border-2
+                        transition-all duration-200 select-none
+                        ${isMyTurn && pile.length > 0 ? 'cursor-pointer hover:shadow-xl hover:-translate-y-1' : 'border-white/15'}
+                        ${pile.length === 0 ? 'opacity-30 cursor-not-allowed border-white/10' : ''}
+                        ${pendingPointPile === colIdx ? 'border-salad-lime ring-4 ring-salad-lime ring-offset-2 ring-offset-salad-dark scale-105 shadow-xl' : ''}
+                      `}
+                    >
+                      {topCard ? (
+                        <PointCardInner card={topCard} small />
+                      ) : (
+                        <div className="w-full h-full rounded-xl bg-white/5 flex flex-col items-center justify-center">
+                          <span className="text-2xl opacity-20">📭</span>
+                          <span className="text-[10px] text-white/30 font-bold mt-1">Empty</span>
+                        </div>
+                      )}
+
+                      {/* Remaining pile count badge */}
+                      {pile.length > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-salad-dark text-salad-lime text-[10px] font-mono font-black rounded-full w-5 h-5 flex items-center justify-center border border-salad-lime shadow">
+                          {pile.length}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Divider pointing to Market */}
+                    <div className="w-8 h-px bg-white/15 my-0.5" />
+
+                    {/* Market Rows (Row 0 and Row 1) */}
+                    <div className="space-y-2 w-full flex flex-col items-center">
+                      {[0, 1].map(rowIdx => {
+                        const card = marketCol[rowIdx];
+                        const key = `${colIdx}-${rowIdx}`;
+                        const isSelected = pendingMarket.includes(key);
+
+                        return card ? (
+                          <VeggieCard
+                            key={card.id}
+                            card={card}
+                            small
+                            selectable={isMyTurn && pendingPointPile === null}
+                            selected={isSelected}
+                            onSelect={() => handleSelectMarket(colIdx, rowIdx)}
+                          />
+                        ) : (
+                          <div
+                            key={rowIdx}
+                            className="w-[76px] h-[108px] sm:w-[84px] sm:h-[118px] md:w-[94px] md:h-[134px] rounded-xl bg-white/5 border-2 border-dashed border-white/10 flex items-center justify-center text-white/20"
+                          >
+                            <span className="text-lg opacity-40">🌿</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Selection Guidance Message */}
+            <div className="mt-4 pt-3 border-t border-white/10 text-center">
+              {isMyTurn ? (
+                <p className="text-xs text-salad-cream/80 font-semibold">
+                  {pendingPointPile !== null
+                    ? `Selected Pile ${pendingPointPile + 1} Point Card. Tap Confirm Draft to finish your turn.`
+                    : pendingMarket.length === 1
+                    ? '1 veggie selected. Select 1 more veggie card from the market.'
+                    : pendingMarket.length === 2
+                    ? '2 veggies selected. Tap Confirm Draft to collect them!'
+                    : '👉 Tap a Point Pile (top card) OR tap 2 Veggies in the market.'}
+                </p>
+              ) : (
+                <p className="text-xs text-white/40">
+                  Waiting for {room.players?.[currentSid]?.name ?? 'current player'} to complete their draft...
+                </p>
               )}
-              {canConfirmSingleMarket && (
-                <span className="text-salad-yellow ml-1 normal-case font-normal">
-                  — last card!
-                </span>
+            </div>
+
+            {/* Sticky/Floating Confirmation Bar */}
+            <AnimatePresence>
+              {isMyTurn && hasSelection && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 15 }}
+                  className="mt-4 flex items-center gap-2 p-2 bg-salad-green/30 border border-salad-lime/40 rounded-2xl shadow-lg"
+                >
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={confirming}
+                    className="px-4 py-3 rounded-xl border border-white/20 text-white/80 hover:bg-white/10 font-bold text-xs sm:text-sm transition-colors active:scale-95 disabled:opacity-40"
+                  >
+                    ✕ Cancel
+                  </button>
+                  <motion.button
+                    whileTap={canConfirm && !confirming ? { scale: 0.98 } : {}}
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={!canConfirm || confirming}
+                    className="flex-1 py-3 px-4 rounded-xl bg-salad-lime text-salad-dark font-display font-extrabold text-sm sm:text-base shadow-lg hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    {confirmLabel}
+                  </motion.button>
+                </motion.div>
               )}
-            </p>
-            <div className="flex gap-2 sm:gap-3 justify-center">
-              {marketArray.map((col, ci) => (
-                <div key={ci} className="flex flex-col gap-2">
-                  {col.map((card, ri) =>
-                    card ? (
-                      <VeggieCard
-                        key={card.id}
-                        card={card}
-                        small
-                        selectable={isMyTurn && pendingPointPile === null}
-                        selected={pendingMarket.includes(`${ci}-${ri}`)}
-                        onSelect={() => handleSelectMarket(ci, ri)}
-                      />
-                    ) : (
-                      <div
-                        key={ri}
-                        className="w-[72px] h-[104px] rounded-xl bg-white/5 border-2 border-dashed border-white/10 flex items-center justify-center"
-                      >
-                        <span className="text-xl opacity-20">🌿</span>
-                      </div>
-                    )
-                  )}
+            </AnimatePresence>
+          </div>
+        </section>
+
+        {/* ── Right: Hand & Opponents ── */}
+        <section
+          className={`lg:col-span-5 xl:col-span-5 space-y-5 ${
+            mobileTab === 'table' ? 'hidden lg:block' : 'block'
+          }`}
+        >
+          {/* ── Player's Hand Panel ── */}
+          {me && (
+            <div
+              className={`bg-salad-green/20 border border-salad-lime/40 rounded-3xl p-4 sm:p-5 shadow-xl ${
+                mobileTab === 'players' ? 'hidden lg:block' : 'block'
+              }`}
+            >
+              {/* Hand Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🥗</span>
+                  <div>
+                    <h2 className="font-display text-lg text-salad-lime font-bold">Your Salad Hand</h2>
+                    <p className="text-white/50 text-[11px]">{myCards.length} cards collected</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="text-right bg-black/25 px-3 py-1.5 rounded-2xl border border-white/10">
+                  <div className="text-[10px] text-salad-cream/60 font-bold uppercase">Total Score</div>
+                  <div className="font-display text-xl sm:text-2xl text-salad-yellow font-black">
+                    {myScore} pts
+                  </div>
+                </div>
+              </div>
 
-          {/* ── Confirm / Cancel Bar ── */}
-          <AnimatePresence>
-            {isMyTurn && hasSelection && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="mt-4 flex gap-2"
-              >
-                <button
-                  onClick={handleCancel}
-                  disabled={confirming}
-                  className="flex-1 py-3 rounded-xl border border-white/20 text-white/60 font-bold text-sm hover:bg-white/10 transition-colors disabled:opacity-40"
-                >
-                  ✕ Cancel
-                </button>
-                <motion.button
-                  whileTap={canConfirm && !confirming ? { scale: 0.97 } : {}}
-                  onClick={handleConfirm}
-                  disabled={!canConfirm || confirming}
-                  className="flex-[2] py-3 rounded-xl bg-salad-lime text-salad-dark font-bold text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {confirmLabel}
-                </motion.button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              {/* Veggie Pantry / Shelf (Clean, Unclustered layout) */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-salad-cream/80">
+                    Veggie Ingredients
+                  </span>
+                  <span className="text-[11px] font-mono text-salad-lime font-bold">
+                    {myVeggieCards.length} total
+                  </span>
+                </div>
 
-        {/* ── My Hand ── */}
-        {me && (
-          <div className="bg-salad-green/20 border border-salad-lime/40 rounded-2xl p-3">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-salad-lime font-bold text-sm">🃏 Your Hand</p>
-              <p className="text-salad-yellow font-bold text-sm">{myScore} pts</p>
-            </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {(['carrot', 'pepper', 'tomato', 'lettuce', 'onion', 'cabbage'] as VeggieType[]).map(veggie => {
+                    const count = myVeggieCounts[veggie];
+                    return (
+                      <div
+                        key={veggie}
+                        className={`rounded-xl p-2 text-center transition-all border ${
+                          count > 0
+                            ? 'bg-white/10 border-white/20 shadow-sm'
+                            : 'bg-white/5 border-white/5 opacity-40'
+                        }`}
+                      >
+                        <span className="text-2xl block" role="img" aria-label={veggie}>
+                          {VEGGIE_EMOJI[veggie]}
+                        </span>
+                        <div className="text-[10px] text-white/70 capitalize font-bold truncate">
+                          {veggie}
+                        </div>
+                        <div className="text-xs sm:text-sm font-black font-mono text-salad-lime mt-0.5">
+                          ×{count}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-            {/* Point cards with Flip button */}
-            {myPointCards.length > 0 && (
-              <div className="mb-3">
-                <p className="text-salad-yellow text-[10px] font-bold uppercase tracking-wide mb-2">
-                  📋 Point Cards
+              {/* Point Cards with Live Scores & Flip Actions */}
+              <div className="mt-5 pt-4 border-t border-white/10">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-salad-yellow">
+                    Point Scoring Cards ({myPointCards.length})
+                  </span>
                   {isMyTurn && (
-                    <span className="text-white/40 normal-case font-normal ml-1">
-                      {room.hasFlippedThisTurn
-                        ? '— flip used this turn'
-                        : '— tap FLIP to convert to veggie (free, once per turn)'}
+                    <span className="text-[10px] text-white/60 font-semibold">
+                      {room.hasFlippedThisTurn ? '✓ Flip used this turn' : '⚡ 1 free flip per turn'}
                     </span>
                   )}
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {myPointCards.map(c => (
-                    <div key={c.id} className="flex flex-col items-center gap-1.5">
-                      {isMyTurn && (
-                        <button
-                          onClick={() => flipCardToVeggie(c.id)}
-                          disabled={room.hasFlippedThisTurn === true}
-                          className="px-3 py-1.5 bg-salad-green text-white text-xs font-bold rounded-lg shadow-md hover:bg-salad-dark active:scale-95 transition-all min-w-[72px] min-h-[32px] disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          🔄 Flip
-                        </button>
-                      )}
-                      <VeggieCard card={c} />
-                    </div>
-                  ))}
                 </div>
+
+                {myPointCards.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
+                    {myPointCards.map(c => {
+                      const pts = scorePointCard(c.id, myVeggieCounts, players, sessionId);
+                      return (
+                        <div key={c.id} className="flex flex-col items-center gap-1.5 bg-black/20 p-1.5 rounded-2xl border border-white/10">
+                          <VeggieCard card={c} small livePts={pts} />
+
+                          {isMyTurn && (
+                            <button
+                              type="button"
+                              onClick={() => flipCardToVeggie(c.id)}
+                              disabled={room.hasFlippedThisTurn === true}
+                              className="w-full py-1 px-1.5 rounded-lg bg-salad-green hover:bg-salad-dark text-white text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-salad-lime/30"
+                              title={`Flip this point card into 1 ${c.veggie}`}
+                            >
+                              <span>🔄 Flip to</span>
+                              <span>{VEGGIE_EMOJI[c.veggie]}</span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-black/10 rounded-2xl border border-dashed border-white/10">
+                    <p className="text-white/40 text-xs">No point cards in hand.</p>
+                    <p className="text-white/30 text-[10px] mt-0.5">
+                      Draft from the top of draw piles to earn scoring rules!
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* My Veggie cards — stacked by type */}
-{myVeggieCards.length > 0 && (
-  <div>
-    <p className="text-salad-lime text-[10px] font-bold uppercase tracking-wide mb-2">
-      🥗 Veggies
-    </p>
-    <div
-      className="flex flex-wrap gap-4"
-      style={{
-        paddingBottom: Math.max(
-          0,
-          ...Object.values(
-            myVeggieCards.reduce<Record<string, number>>((acc, c) => {
-              acc[c.veggie] = (acc[c.veggie] ?? 0) + 1;
-              return acc;
-            }, {})
-          ).map(count => (count - 1) * 20)
-        ),
-      }}
-    >
-      {Object.entries(
-        myVeggieCards.reduce<Record<string, Card[]>>((acc, c) => {
-          acc[c.veggie] = [...(acc[c.veggie] ?? []), c];
-          return acc;
-        }, {})
-      ).map(([veggie, stack]) => (
-        <div
-          key={veggie}
-          className="relative flex-shrink-0"
-          style={{ width: 90, height: 130 + (stack.length - 1) * 20 }}
-        >
-          {stack.map((c, i) => (
-            <div
-              key={c.id}
-              className="absolute rounded-xl ring-2 ring-white/80"
-              style={{ top: i * 20, left: 0, zIndex: i }}
-            >
-              <VeggieCard card={c} />
             </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+          )}
 
+          {/* ── Other Players Leaderboard / Panels ── */}
+          <div
+            className={`space-y-2.5 ${
+              mobileTab === 'hand' ? 'hidden lg:block' : 'block'
+            }`}
+          >
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">
+                Other Players ({players.filter(p => p.sessionId !== sessionId).length})
+              </h2>
+              <span className="text-[10px] text-white/40">Tap player to view their cards</span>
+            </div>
 
-            {(me.cards || []).length === 0 && (
-              <p className="text-white/30 text-sm text-center py-4">
-                Draft cards above to build your salad! 🥗
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ── Other Players ── */}
-        {players.filter(p => p.sessionId !== sessionId).length > 0 && (
-          <div className="space-y-2">
-            <p className="text-white/40 text-[11px] font-bold uppercase tracking-wide px-1">
-              Other Players
-            </p>
             {room.playerOrder
               .filter(sid => sid !== sessionId)
               .map(sid => {
@@ -685,9 +891,8 @@ export default function GamePage({ game }: Props) {
                 );
               })}
           </div>
-        )}
-
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

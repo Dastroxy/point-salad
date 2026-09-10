@@ -81,6 +81,11 @@ export function refillMarket(
       if (maxIdx >= 0 && newPiles[maxIdx].length > 1) {
         const half = Math.floor(newPiles[maxIdx].length / 2);
         newPiles[col] = newPiles[maxIdx].splice(half);
+        for (let row = 0; row < 2; row++) {
+          if (newMarket[col][row] === null && newPiles[col].length > 0) {
+            newMarket[col][row] = { ...newPiles[col].shift()!, isFaceUp: false };
+          }
+        }
       }
     }
   }
