@@ -402,7 +402,6 @@ export default function GamePage({ game }: Props) {
   const [pendingPointPile, setPendingPointPile] = useState<number | null>(null);
   const [pendingMarket, setPendingMarket] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'table' | 'hand' | 'players'>('table');
   const [copiedCode, setCopiedCode] = useState(false);
 
   if (!room) return null;
@@ -534,64 +533,58 @@ export default function GamePage({ game }: Props) {
             </motion.div>
 
             {/* Current player quick score indicator */}
-            <div className="bg-salad-yellow/20 border border-salad-yellow/30 px-2.5 py-1 rounded-full text-xs font-extrabold text-salad-yellow hidden sm:flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => document.getElementById('hand-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-salad-yellow/20 hover:bg-salad-yellow/30 border border-salad-yellow/30 px-2.5 py-1 rounded-full text-xs font-extrabold text-salad-yellow flex items-center gap-1 cursor-pointer transition-colors"
+              title="Click to view your hand"
+            >
               <span>Score:</span>
               <span className="font-mono">{myScore} pts</span>
-            </div>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* ── Mobile Tab Navigation (Hidden on lg+ screens) ── */}
-      <div className="lg:hidden bg-black/30 border-b border-white/10 px-3 py-1.5 sticky top-[49px] z-20 backdrop-blur">
-        <div className="flex rounded-xl bg-white/5 p-1 max-w-md mx-auto">
+      {/* ── Mobile Quick Jump Bar (Smooth scroll shortcuts on single page) ── */}
+      <div className="lg:hidden bg-black/40 border-b border-white/10 px-3 py-1.5 sticky top-[49px] z-20 backdrop-blur-md">
+        <div className="flex rounded-xl bg-white/5 p-1 max-w-md mx-auto items-center justify-between text-xs gap-1">
           <button
             type="button"
-            onClick={() => setMobileTab('table')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-              mobileTab === 'table'
-                ? 'bg-salad-lime text-salad-dark shadow'
-                : 'text-white/60 hover:text-white'
-            }`}
+            onClick={() => document.getElementById('table-market-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="flex-1 py-1.5 px-2 text-xs font-bold rounded-lg text-white/80 hover:text-white hover:bg-white/10 active:bg-salad-lime active:text-salad-dark transition-all flex items-center justify-center gap-1"
           >
-            <span>🛒 Table & Market</span>
+            <span>🛒 Market</span>
           </button>
+          <span className="text-white/20 select-none">•</span>
           <button
             type="button"
-            onClick={() => setMobileTab('hand')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              mobileTab === 'hand'
-                ? 'bg-salad-lime text-salad-dark shadow'
-                : 'text-white/60 hover:text-white'
-            }`}
+            onClick={() => document.getElementById('hand-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="flex-1 py-1.5 px-2 text-xs font-bold rounded-lg text-white/80 hover:text-white hover:bg-white/10 active:bg-salad-lime active:text-salad-dark transition-all flex items-center justify-center gap-1.5"
           >
-            <span>🃏 Hand</span>
-            <span className="bg-salad-yellow/30 text-salad-yellow text-[10px] px-1 rounded-full font-mono">
-              {myScore}
+            <span>🥗 Your Hand</span>
+            <span className="bg-salad-yellow/30 text-salad-yellow text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
+              {myScore} pts
             </span>
           </button>
+          <span className="text-white/20 select-none">•</span>
           <button
             type="button"
-            onClick={() => setMobileTab('players')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-              mobileTab === 'players'
-                ? 'bg-salad-lime text-salad-dark shadow'
-                : 'text-white/60 hover:text-white'
-            }`}
+            onClick={() => document.getElementById('players-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="flex-1 py-1.5 px-2 text-xs font-bold rounded-lg text-white/80 hover:text-white hover:bg-white/10 active:bg-salad-lime active:text-salad-dark transition-all flex items-center justify-center gap-1"
           >
             <span>👥 Players</span>
-            <span className="text-[10px] opacity-70">({players.length})</span>
+            <span className="text-[10px] opacity-70 font-mono">({players.length})</span>
           </button>
         </div>
       </div>
 
-      {/* ── Main Responsive Game Arena ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* ── Main Responsive Game Arena (Single Scrollable View) ── */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-24 lg:pb-12">
         {/* ── Left / Main: The Table (Draw Piles + Market Columns) ── */}
         <section
-          className={`lg:col-span-7 xl:col-span-7 space-y-4 ${
-            mobileTab !== 'table' ? 'hidden lg:block' : 'block'
-          }`}
+          id="table-market-section"
+          className="lg:col-span-7 xl:col-span-7 space-y-4 scroll-mt-28"
         >
           {/* Table Container Card */}
           <div className="bg-black/25 backdrop-blur-sm border border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl">
@@ -711,7 +704,7 @@ export default function GamePage({ game }: Props) {
               )}
             </div>
 
-            {/* Sticky/Floating Confirmation Bar */}
+            {/* In-table Confirmation Bar */}
             <AnimatePresence>
               {isMyTurn && hasSelection && (
                 <motion.div
@@ -743,18 +736,13 @@ export default function GamePage({ game }: Props) {
           </div>
         </section>
 
-        {/* ── Right: Hand & Opponents ── */}
-        <section
-          className={`lg:col-span-5 xl:col-span-5 space-y-5 ${
-            mobileTab === 'table' ? 'hidden lg:block' : 'block'
-          }`}
-        >
+        {/* ── Right: Hand & Opponents (Unified in same scrollable view) ── */}
+        <section className="lg:col-span-5 xl:col-span-5 space-y-5">
           {/* ── Player's Hand Panel ── */}
           {me && (
             <div
-              className={`bg-salad-green/20 border border-salad-lime/40 rounded-3xl p-4 sm:p-5 shadow-xl ${
-                mobileTab === 'players' ? 'hidden lg:block' : 'block'
-              }`}
+              id="hand-section"
+              className="bg-salad-green/20 border border-salad-lime/40 rounded-3xl p-4 sm:p-5 shadow-xl scroll-mt-28"
             >
               {/* Hand Header */}
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -862,9 +850,8 @@ export default function GamePage({ game }: Props) {
 
           {/* ── Other Players Leaderboard / Panels ── */}
           <div
-            className={`space-y-2.5 ${
-              mobileTab === 'hand' ? 'hidden lg:block' : 'block'
-            }`}
+            id="players-section"
+            className="space-y-2.5 scroll-mt-28"
           >
             <div className="flex items-center justify-between px-1">
               <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">
@@ -893,6 +880,36 @@ export default function GamePage({ game }: Props) {
           </div>
         </section>
       </main>
+
+      {/* ── Floating Draft Confirmation Bar (Always visible while scrolling when cards selected) ── */}
+      <AnimatePresence>
+        {isMyTurn && hasSelection && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.95 }}
+            className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-40 bg-salad-dark/95 backdrop-blur-md p-2.5 rounded-2xl border-2 border-salad-lime shadow-2xl flex items-center gap-2"
+          >
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={confirming}
+              className="px-3.5 py-2.5 rounded-xl border border-white/20 text-white/80 hover:bg-white/10 font-bold text-xs sm:text-sm transition-colors active:scale-95 disabled:opacity-40"
+            >
+              ✕ Cancel
+            </button>
+            <motion.button
+              whileTap={canConfirm && !confirming ? { scale: 0.98 } : {}}
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canConfirm || confirming}
+              className="flex-1 py-2.5 px-4 rounded-xl bg-salad-lime text-salad-dark font-display font-extrabold text-sm sm:text-base shadow-lg hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {confirmLabel}
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
